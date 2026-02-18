@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react"
 import { Layer, ManagedRuntime } from "effect"
 import type { URLAdapter } from "../core/adapter.js"
 import { URLAdapterTag } from "../core/adapter.js"
@@ -18,6 +18,13 @@ export function QueryProvider({ adapter, children }: QueryProviderProps) {
   if (runtimeRef.current === null) {
     runtimeRef.current = ManagedRuntime.make(adapter ?? BrowserURLAdapterLayer)
   }
+
+  useEffect(() => {
+    return () => {
+      runtimeRef.current?.dispose()
+    }
+  }, [])
+
   return (
     <QueryRuntimeContext.Provider value={runtimeRef.current}>
       {children}

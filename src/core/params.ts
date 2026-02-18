@@ -1,7 +1,17 @@
-import { Effect, Schema } from "effect"
+import { Effect, Equal, Schema } from "effect"
 import { URLAdapterTag } from "./adapter.js"
 import { AdapterError, ParseError, SerializeError } from "./errors.js"
 import type { QueryParser } from "./parsers.js"
+
+const isDefaultValue = <A>(value: A, defaultValue: A | undefined): boolean => {
+  if (defaultValue === undefined) return false
+  if (Equal.equals(value, defaultValue)) return true
+  // fallback for plain objects not implementing Equal
+  if (typeof value === "object" && value !== null) {
+    try { return JSON.stringify(value) === JSON.stringify(defaultValue) } catch { return false }
+  }
+  return Object.is(value, defaultValue)
+}
 
 export interface SetOptions {
   readonly history?: "push" | "replace"
@@ -42,11 +52,7 @@ export const setParam = <A>(
       params.delete(key)
     } else {
       const clearOnDefault = options?.clearOnDefault !== false
-      if (
-        clearOnDefault &&
-        parser.defaultValue !== undefined &&
-        JSON.stringify(value) === JSON.stringify(parser.defaultValue)
-      ) {
+      if (clearOnDefault && isDefaultValue(value, parser.defaultValue)) {
         params.delete(key)
       } else {
         const encoded = yield* Schema.encode(parser.schema)(value).pipe(
@@ -96,12 +102,17 @@ export const setParams = <T extends Record<string, QueryParser<any>>>(
       if (value === null) {
         params.delete(key)
       } else {
-        const encoded = yield* Schema.encode(parser.schema)(value).pipe(
-          Effect.mapError(
-            (e) => new SerializeError({ key, value, message: String(e) })
+        const clearOnDefault = options?.clearOnDefault !== false
+        if (clearOnDefault && isDefaultValue(value, parser.defaultValue)) {
+          params.delete(key)
+        } else {
+          const encoded = yield* Schema.encode(parser.schema)(value).pipe(
+            Effect.mapError(
+              (e) => new SerializeError({ key, value, message: String(e) })
+            )
           )
-        )
-        params.set(key, encoded)
+          params.set(key, encoded)
+        }
       }
     }
 

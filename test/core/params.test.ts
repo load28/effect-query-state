@@ -177,4 +177,32 @@ describe("setParams", () => {
     expect(params.get("page")).toBe("2")
     expect(params.get("sort")).toBe("asc")
   })
+
+  it("clears param when value equals default (clearOnDefault)", async () => {
+    const onSet = vi.fn()
+    const layer = createMockAdapter("page=1&q=hello", onSet)
+    await Effect.runPromise(
+      setParams(
+        { page: withDefault(qInteger, 1), q: qString },
+        { page: 1, q: "updated" }
+      ).pipe(Effect.provide(layer))
+    )
+    const [params] = onSet.mock.calls[0]
+    expect(params.has("page")).toBe(false) // default cleared
+    expect(params.get("q")).toBe("updated")
+  })
+
+  it("keeps default value when clearOnDefault is false", async () => {
+    const onSet = vi.fn()
+    const layer = createMockAdapter("", onSet)
+    await Effect.runPromise(
+      setParams(
+        { page: withDefault(qInteger, 1) },
+        { page: 1 },
+        { clearOnDefault: false }
+      ).pipe(Effect.provide(layer))
+    )
+    const [params] = onSet.mock.calls[0]
+    expect(params.get("page")).toBe("1")
+  })
 })

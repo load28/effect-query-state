@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Effect, Equal, Schema } from "effect"
 import { SerializeError } from "./errors.js"
 import type { QueryParser } from "./parsers.js"
 
@@ -19,11 +19,12 @@ export const createSerializer = <T extends Record<string, QueryParser<any>>>(
         const parser = parsers[key]
 
         // Skip default values
-        if (
-          parser.defaultValue !== undefined &&
-          JSON.stringify(value) === JSON.stringify(parser.defaultValue)
-        ) {
-          continue
+        if (parser.defaultValue !== undefined) {
+          const isDefault = Equal.equals(value, parser.defaultValue) ||
+            (typeof value === "object" && value !== null
+              ? (() => { try { return JSON.stringify(value) === JSON.stringify(parser.defaultValue) } catch { return false } })()
+              : Object.is(value, parser.defaultValue))
+          if (isDefault) continue
         }
 
         const encoded = yield* Schema.encode(parser.schema)(value).pipe(

@@ -1,35 +1,11 @@
 import { describe, it, expect, vi } from "vitest"
 import { renderHook, act } from "@testing-library/react"
 import { type ReactNode } from "react"
-import { Effect, Layer } from "effect"
+import { type Layer } from "effect"
 import { QueryProvider } from "@react/provider"
 import { useQueryState } from "@react/useQueryState"
-import { qInteger, qString, withDefault } from "@core/parsers"
-import { URLAdapterTag } from "@core/adapter"
-
-const createStatefulMockAdapter = (initialSearch: string) => {
-  let currentParams = new URLSearchParams(initialSearch)
-  const listeners: Array<() => void> = []
-
-  const layer = Layer.succeed(URLAdapterTag, {
-    getSearchParams: Effect.sync(() => new URLSearchParams(currentParams.toString())),
-    setSearchParams: (params: URLSearchParams, _options: any) =>
-      Effect.sync(() => {
-        currentParams = params
-        listeners.forEach((l) => l())
-      }),
-    subscribe: (listener: () => void) =>
-      Effect.sync(() => {
-        listeners.push(listener)
-        return () => {
-          const idx = listeners.indexOf(listener)
-          if (idx >= 0) listeners.splice(idx, 1)
-        }
-      }),
-  })
-
-  return { layer, getParams: () => currentParams }
-}
+import { qInteger, withDefault } from "@core/parsers"
+import { createStatefulMockAdapter } from "../helpers"
 
 const createWrapper = (adapter: Layer.Layer<any>) =>
   ({ children }: { children: ReactNode }) => (
@@ -99,6 +75,16 @@ describe("useQueryState", () => {
     await vi.waitFor(() => {
       expect(result.current[0]).toBeNull()
       expect(getParams().has("page")).toBe(false)
+    })
+  })
+
+  it("exposes error state as third element", async () => {
+    const { layer } = createStatefulMockAdapter("page=3")
+    const { result } = renderHook(() => useQueryState("page", qInteger), {
+      wrapper: createWrapper(layer),
+    })
+    await vi.waitFor(() => {
+      expect(result.current[2]).toBeNull() // no error
     })
   })
 })

@@ -16,3 +16,27 @@ export const createMockAdapter = (
     subscribe: (_listener) => Effect.succeed(() => {}),
   })
 }
+
+export const createStatefulMockAdapter = (initialSearch: string) => {
+  let currentParams = new URLSearchParams(initialSearch)
+  const listeners: Array<() => void> = []
+
+  const layer = Layer.succeed(URLAdapterTag, {
+    getSearchParams: Effect.sync(() => new URLSearchParams(currentParams.toString())),
+    setSearchParams: (params: URLSearchParams, _options: { readonly history: "push" | "replace" }) =>
+      Effect.sync(() => {
+        currentParams = params
+        listeners.forEach((l) => l())
+      }),
+    subscribe: (listener: () => void) =>
+      Effect.sync(() => {
+        listeners.push(listener)
+        return () => {
+          const idx = listeners.indexOf(listener)
+          if (idx >= 0) listeners.splice(idx, 1)
+        }
+      }),
+  })
+
+  return { layer, getParams: () => currentParams }
+}
