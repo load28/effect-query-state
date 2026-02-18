@@ -80,13 +80,17 @@ export const qFloat: QueryParser<number> = {
 // qBoolean
 // ---------------------------------------------------------------------------
 
-const BooleanFromString: Schema.Schema<boolean, string> = Schema.transform(
-  Schema.Literal("true", "false"),
+const BooleanFromString: Schema.Schema<boolean, string> = Schema.transformOrFail(
+  Schema.String,
   Schema.Boolean,
   {
     strict: true,
-    decode: (s) => s === "true",
-    encode: (b) => (b ? "true" as const : "false" as const),
+    decode: (s, _options, ast) => {
+      if (s === "true") return Effect.succeed(true)
+      if (s === "false") return Effect.succeed(false)
+      return Effect.fail(new ParseResult.Type(ast, s, "Expected 'true' or 'false'"))
+    },
+    encode: (b) => Effect.succeed(b ? "true" : "false"),
   },
 )
 
